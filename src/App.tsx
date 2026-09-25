@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
+import { QRWhatsAppConnector } from './components/QRWhatsAppConnector';
 import { WhatsAppSimulator } from './components/WhatsAppSimulator';
 import { BulkSender } from './components/BulkSender';
 import { CodeHub } from './components/CodeHub';
@@ -13,7 +14,7 @@ import { downloadProjectZip } from './utils/zipDownloader';
 import { MessageSquare, FolderArchive, Smartphone, ShieldCheck, Sparkles, Github } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'simulator' | 'bulk' | 'code' | 'webhook' | 'guide'>('simulator');
+  const [activeTab, setActiveTab] = useState<'qr' | 'simulator' | 'bulk' | 'code' | 'webhook' | 'guide'>('qr');
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isAndroidModalOpen, setIsAndroidModalOpen] = useState(false);
   const [isGitHubModalOpen, setIsGitHubModalOpen] = useState(false);
@@ -67,6 +68,10 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 pb-12">
+        {activeTab === 'qr' && (
+          <QRWhatsAppConnector config={config} setConfig={setConfig} />
+        )}
+
         {activeTab === 'simulator' && (
           <WhatsAppSimulator config={config} setConfig={setConfig} />
         )}
