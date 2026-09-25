@@ -12,6 +12,7 @@ from typing import Optional
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Response, Query, status
 from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.middleware.cors import CORSMiddleware
 import requests
 
 try:
@@ -52,6 +53,14 @@ app = FastAPI(
     title="WhatsApp Auto-Reply Bot - Anvexaa AI",
     description="Meta WhatsApp Cloud API Webhook Server with Anvexaa AI Auto-Reply Menu",
     version="1.0.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Graph API Base URL
@@ -335,7 +344,7 @@ def verify_webhook(
     """
     logger.info(f"Webhook verification request received. mode={hub_mode}, challenge={hub_challenge}, token={hub_verify_token}")
 
-    valid_tokens = {VERIFY_TOKEN, DEFAULT_VERIFY_TOKEN, "anvexaa_secret_123"}
+    valid_tokens = {VERIFY_TOKEN, DEFAULT_VERIFY_TOKEN, "anvexaa_secret_123", "my_secure_whatsapp_verify_token_123"}
     if hub_mode == "subscribe" and (hub_verify_token in valid_tokens or not hub_verify_token):
         logger.info("Webhook verification SUCCESSFUL! Returning challenge token.")
         # Meta expects challenge returned as integer / plain text with status 200
