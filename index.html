@@ -16,6 +16,19 @@
     <meta name="apple-mobile-web-app-title" content="Anvexaa AI" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="alternate" type="application/manifest+json" href="/manifest.webmanifest" />
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js').then(function(reg) {
+            console.log('PWA ServiceWorker registered successfully:', reg.scope);
+          }).catch(function(err) {
+            console.warn('PWA ServiceWorker registration error:', err);
+          });
+        });
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

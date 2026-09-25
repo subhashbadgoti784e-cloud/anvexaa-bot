@@ -237,6 +237,9 @@ app.post('/api/wa/disconnect', async (req, res) => {
 async function startServer() {
   const isProd = process.env.NODE_ENV === 'production';
   
+  // Serve static public assets (manifest.json, sw.js, icons) explicitly
+  app.use(express.static(path.join(process.cwd(), 'public')));
+
   if (!isProd) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
