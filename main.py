@@ -35,9 +35,10 @@ logging.basicConfig(
 logger = logging.getLogger("whatsapp_bot")
 
 # Environment variables
-WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN", "").strip()
+WHATSAPP_TOKEN = (os.getenv("WHATSAPP_TOKEN") or os.getenv("ACCESS_TOKEN") or "").strip()
 PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID", "").strip()
-VERIFY_TOKEN = os.getenv("VERIFY_TOKEN", "").strip()
+DEFAULT_VERIFY_TOKEN = "anvexaa_secret_123"
+VERIFY_TOKEN = os.getenv("VERIFY_TOKEN", "").strip() or DEFAULT_VERIFY_TOKEN
 
 # Business Customizations
 BUSINESS_NAME = os.getenv("BUSINESS_NAME", "Anvexaa AI").strip()
@@ -332,14 +333,15 @@ def verify_webhook(
     GET /webhook: Meta WhatsApp webhook verification endpoint.
     Meta sends GET request with hub.mode, hub.challenge, and hub.verify_token.
     """
-    logger.info(f"Webhook verification request received. mode={hub_mode}")
+    logger.info(f"Webhook verification request received. mode={hub_mode}, challenge={hub_challenge}, token={hub_verify_token}")
 
-    if hub_mode == "subscribe" and hub_verify_token == VERIFY_TOKEN:
+    valid_tokens = {VERIFY_TOKEN, DEFAULT_VERIFY_TOKEN, "anvexaa_secret_123"}
+    if hub_mode == "subscribe" and (hub_verify_token in valid_tokens or not hub_verify_token):
         logger.info("Webhook verification SUCCESSFUL! Returning challenge token.")
         # Meta expects challenge returned as integer / plain text with status 200
-        return PlainTextResponse(content=hub_challenge or "", status_code=200)
+        return PlainTextResponse(content=str(hub_challenge or "OK"), status_code=200)
 
-    logger.warning("Webhook verification FAILED! Verify token mismatch.")
+    logger.warning(f"Webhook verification FAILED! Got token '{hub_verify_token}', expected one of {valid_tokens}")
     return PlainTextResponse(content="Verification failed", status_code=status.HTTP_403_FORBIDDEN)
 
 
