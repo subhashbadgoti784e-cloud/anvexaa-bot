@@ -24,7 +24,7 @@ export default function App() {
     businessLocation: 'Anvexaa AI Tech Hub',
     googleMapsLink: 'https://anvexaa.ai',
     teamContactNumber: '+91 8854910735',
-    whatsappToken: '',
+    whatsappToken: 'EAAeWv9B2r5YBShJwr4qCOcvdQUqNaDebMCPZCpia2WPKkGe1ZCHmGJOuvAUU67NU7FxCrLIoBafHeZCkCddfGlskyVSn9MqAtAvG0RdirfwSaWJLSWfAF5KOlwh5ofqzJSIxJFLOQh3qZCwLONTsgKtZCN0cQfZCgdImRd697NznZCco3kWTp3aQUO2hemGIKZC4PHpv7rC8iy76AtKuK22THZBOUETHuKCXXR8p9ziZAOyDqi7gFEZAnPhEdM34hIwPaTH5NkbqtdOe4LD1qE8pMSg6bUPuQZDZD',
     phoneNumberId: '1312511691952064',
     verifyToken: 'my_secure_whatsapp_verify_token_123',
     defaultTemplateName: 'anvexaa_pitch',
