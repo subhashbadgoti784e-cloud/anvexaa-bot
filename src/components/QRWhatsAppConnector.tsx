@@ -33,13 +33,43 @@ export const QRWhatsAppConnector: React.FC<QRWhatsAppConnectorProps> = ({ config
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [countdown, setCountdown] = useState<number>(30);
   const [usePairingCode, setUsePairingCode] = useState<boolean>(false);
-  const [pairingCode, setPairingCode] = useState<string>('ANVX-8854');
+  const [pairingCode, setPairingCode] = useState<string>('');
   const [mobileNumber, setMobileNumber] = useState<string>(config.teamContactNumber || '+91 8854910735');
+  const [isRequestingCode, setIsRequestingCode] = useState(false);
+  const [pairingError, setPairingError] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedCmd, setCopiedCmd] = useState(false);
 
+  // Request Real WhatsApp 8-Digit Pairing OTP from WhatsApp servers
+  const handleRequestPairingCode = async () => {
+    setIsRequestingCode(true);
+    setPairingError(null);
+    addLog(`Requesting real WhatsApp OTP code for ${mobileNumber}...`, 'info');
+
+    try {
+      const res = await fetch('/api/wa/pairing-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: mobileNumber })
+      });
+      const data = await res.json();
+      if (res.ok && data.pairingCode) {
+        setPairingCode(data.pairingCode);
+        addLog(`🎉 Real WhatsApp Pairing OTP received: ${data.pairingCode}`, 'success');
+      } else {
+        setPairingError(data.error || 'WhatsApp server se OTP nahi mil saka.');
+        addLog(`Pairing error: ${data.error}`, 'error');
+      }
+    } catch (e: any) {
+      setPairingError(e.message || 'Server connection error');
+      addLog(`Pairing error: ${e.message}`, 'error');
+    } finally {
+      setIsRequestingCode(false);
+    }
+  };
+
   // Live Auto-Reply Test Feed
-  const [logs, setLogs] = useState<Array<{ id: string; time: string; text: string; type: 'info' | 'success' | 'bot' | 'user' }>>([
+  const [logs, setLogs] = useState<Array<{ id: string; time: string; text: string; type: 'info' | 'success' | 'bot' | 'user' | 'error' }>>([
     { id: '1', time: 'Just now', text: 'WhatsApp Multi-Device Engine initialized (Baileys v6.7)', type: 'info' },
     { id: '2', time: 'Just now', text: 'Meta Cloud API Bypass: Enabled (No Meta Business Verification Required)', type: 'success' },
     { id: '3', time: 'Just now', text: 'Ready to pair with phone: +91 8854910735', type: 'info' }
@@ -159,7 +189,7 @@ export const QRWhatsAppConnector: React.FC<QRWhatsAppConnectorProps> = ({ config
     }, 500);
   };
 
-  const addLog = (text: string, type: 'info' | 'success' | 'bot' | 'user') => {
+  const addLog = (text: string, type: 'info' | 'success' | 'bot' | 'user' | 'error' = 'info') => {
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     setLogs((prev) => [{ id: Math.random().toString(), time, text, type }, ...prev.slice(0, 19)]);
   };
@@ -371,49 +401,93 @@ export const QRWhatsAppConnector: React.FC<QRWhatsAppConnectorProps> = ({ config
             ) : (
               /* Pairing Code View */
               <div className="py-4">
-                <div className="text-center mb-6">
-                  <div className="text-xs text-slate-400 mb-1">Enter your phone number to receive an 8-digit linking code:</div>
-                  <div className="flex gap-2 max-w-sm mx-auto">
+                <div className="mb-6">
+                  <label className="block text-xs font-semibold text-slate-300 mb-2">
+                    Enter your WhatsApp Phone Number (with Country Code):
+                  </label>
+                  <div className="flex flex-col sm:flex-row gap-2 max-w-md mx-auto">
                     <input
                       type="text"
                       value={mobileNumber}
                       onChange={(e) => setMobileNumber(e.target.value)}
                       placeholder="+91 8854910735"
-                      className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 font-mono"
+                      className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 font-mono"
                     />
                     <button
-                      onClick={() => {
-                        const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-                        setPairingCode(`ANVX-${randomSuffix}`);
-                        addLog(`Generated Pairing Code: ANVX-${randomSuffix}`, 'info');
-                      }}
-                      className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition-all"
+                      onClick={handleRequestPairingCode}
+                      disabled={isRequestingCode}
+                      className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
                     >
-                      Generate
+                      {isRequestingCode ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Connecting WhatsApp...</span>
+                        </>
+                      ) : (
+                        <>
+                          <KeyRound className="w-3.5 h-3.5" />
+                          <span>Get Real OTP Code</span>
+                        </>
+                      )}
                     </button>
                   </div>
+                  {pairingError && (
+                    <div className="mt-2 text-xs text-rose-400 text-center font-medium bg-rose-950/40 border border-rose-800/50 rounded-lg p-2 max-w-md mx-auto">
+                      ⚠️ {pairingError}
+                    </div>
+                  )}
                 </div>
 
-                <div className="bg-slate-950 border-2 border-emerald-500/40 rounded-2xl p-6 text-center shadow-inner">
-                  <div className="text-xs text-slate-400 mb-2">Your 8-Digit WhatsApp Linking Code</div>
-                  <div className="font-mono text-3xl sm:text-4xl font-extrabold tracking-widest text-emerald-400 select-all my-2">
-                    {pairingCode}
+                <div className="bg-slate-950 border-2 border-emerald-500/40 rounded-2xl p-6 text-center shadow-inner relative overflow-hidden">
+                  <div className="text-xs text-slate-400 mb-2 font-medium">
+                    {pairingCode ? 'Official WhatsApp 8-Digit Linking OTP' : 'Click "Get Real OTP Code" above'}
                   </div>
-                  <button
-                    onClick={handleCopyCode}
-                    className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-all"
-                  >
-                    {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedCode ? 'Copied to Clipboard!' : 'Copy Code'}</span>
-                  </button>
+
+                  {isRequestingCode ? (
+                    <div className="py-6 flex flex-col items-center justify-center gap-2">
+                      <RefreshCw className="w-8 h-8 text-emerald-400 animate-spin" />
+                      <div className="text-xs text-slate-300">Connecting to WhatsApp Multi-Device Server...</div>
+                    </div>
+                  ) : pairingCode ? (
+                    <>
+                      <div className="font-mono text-3xl sm:text-4xl font-extrabold tracking-widest text-emerald-400 select-all my-3 py-2 bg-emerald-950/30 rounded-xl border border-emerald-500/30">
+                        {pairingCode}
+                      </div>
+                      <button
+                        onClick={handleCopyCode}
+                        className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition-all border border-slate-700 shadow-sm"
+                      >
+                        {copiedCode ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                        <span>{copiedCode ? 'Copied to Clipboard!' : 'Copy 8-Digit OTP'}</span>
+                      </button>
+                    </>
+                  ) : (
+                    <div className="py-6 text-slate-500 text-xs italic">
+                      Apna number likhkar "Get Real OTP Code" dabayein, WhatsApp servers aapko direct 8-digit code denge.
+                    </div>
+                  )}
+                </div>
+
+                {/* Instructions specifically for Phone Number Link */}
+                <div className="mt-5 p-4 bg-emerald-950/20 border border-emerald-500/20 rounded-xl text-left">
+                  <h5 className="text-xs font-bold text-emerald-300 mb-2 flex items-center gap-1.5">
+                    <Smartphone className="w-4 h-4" />
+                    <span>Phone par yeh code kaise dalein:</span>
+                  </h5>
+                  <ol className="text-xs text-slate-300 space-y-1.5 list-decimal list-inside">
+                    <li>Apne mobile mein WhatsApp kholein.</li>
+                    <li>Upar <strong>3-Dots (⋮)</strong> &gt; <strong>Linked Devices</strong> &gt; <strong>Link a Device</strong> dabayein.</li>
+                    <li>Camera khulne par niche <strong>"Link with phone number instead"</strong> par click karein.</li>
+                    <li>Upar dikhaya gaya <strong>8-digit OTP code</strong> enter karein!</li>
+                  </ol>
                 </div>
 
                 <button
                   onClick={handleSimulateScan}
-                  className="mt-6 w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-sm transition-all shadow-lg flex items-center justify-center gap-2"
+                  className="mt-5 w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-sm transition-all shadow-lg flex items-center justify-center gap-2"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Code Entered on Phone? Connect Device</span>
+                  <span>Code Entered on Phone? Confirm Connection</span>
                 </button>
               </div>
             )}

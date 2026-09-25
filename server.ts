@@ -178,6 +178,36 @@ app.get('/api/wa/status', (req, res) => {
   });
 });
 
+app.post('/api/wa/pairing-code', async (req, res) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) {
+      return res.status(400).json({ error: 'Phone number is required' });
+    }
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    if (cleanPhone.length < 10) {
+      return res.status(400).json({ error: 'Enter a valid phone number with country code (e.g. 918854910735)' });
+    }
+
+    if (!waSocket || connectionStatus === 'idle') {
+      await startWhatsApp();
+      // Give socket 2.5s to establish connection
+      await new Promise(resolve => setTimeout(resolve, 2500));
+    }
+
+    addLog(`Requesting real 8-digit WhatsApp linking code for +${cleanPhone}...`, 'info');
+    const rawCode = await waSocket.requestPairingCode(cleanPhone);
+    const formattedCode = rawCode?.match(/.{1,4}/g)?.join('-') || rawCode;
+    addLog(`✅ Real WhatsApp Linking Code Received: ${formattedCode}`, 'success');
+    
+    res.json({ success: true, pairingCode: formattedCode });
+  } catch (err: any) {
+    console.error('Pairing code error:', err);
+    addLog(`Pairing code error: ${err.message}`, 'error');
+    res.status(500).json({ error: err.message || 'Failed to request pairing code from WhatsApp' });
+  }
+});
+
 app.post('/api/wa/start', async (req, res) => {
   await startWhatsApp();
   res.json({ success: true, status: connectionStatus });
@@ -213,6 +243,20 @@ async function startServer() {
       appType: 'spa'
     });
     app.use(vite.middlewares);
+    
+    // Serve transformed index.html for all non-api SPA routes
+    app.use('*', async (req, res, next) => {
+      const url = req.originalUrl;
+      if (url.startsWith('/api')) return next();
+      try {
+        let template = fs.readFileSync(path.resolve(process.cwd(), 'index.html'), 'utf-8');
+        template = await vite.transformIndexHtml(url, template);
+        res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+      } catch (e: any) {
+        vite.ssrFixStacktrace(e);
+        next(e);
+      }
+    });
   } else {
     app.use(express.static(path.join(process.cwd(), 'dist')));
     app.get('*', (req, res) => {
