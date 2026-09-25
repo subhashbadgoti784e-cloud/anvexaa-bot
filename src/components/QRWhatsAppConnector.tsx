@@ -30,7 +30,9 @@ interface QRWhatsAppConnectorProps {
 
 export const QRWhatsAppConnector: React.FC<QRWhatsAppConnectorProps> = ({ config, setConfig }) => {
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'generating' | 'waiting' | 'authenticating' | 'connected'>('waiting');
+  const [connectorMode, setConnectorMode] = useState<'customer_qr' | 'pairing_code' | 'device_qr'>('customer_qr');
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
+  const [customerQrDataUrl, setCustomerQrDataUrl] = useState<string>('');
   const [countdown, setCountdown] = useState<number>(30);
   const [usePairingCode, setUsePairingCode] = useState<boolean>(false);
   const [pairingCode, setPairingCode] = useState<string>('');
@@ -39,6 +41,22 @@ export const QRWhatsAppConnector: React.FC<QRWhatsAppConnectorProps> = ({ config
   const [pairingError, setPairingError] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedCmd, setCopiedCmd] = useState(false);
+  const [copiedLeadLink, setCopiedLeadLink] = useState(false);
+
+  // Generate Real Customer Lead QR code that opens WhatsApp directly on any phone
+  const cleanPhone = (mobileNumber || '918854910735').replace(/[^0-9]/g, '');
+  const leadMessage = 'Hi Anvexaa AI, mujhe AI Video Ads, Website aur WhatsApp Automation ki details chahiye.';
+  const directWhatsAppLink = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(leadMessage)}`;
+
+  useEffect(() => {
+    QRCode.toDataURL(directWhatsAppLink, {
+      width: 320,
+      margin: 2,
+      color: { dark: '#0f172a', light: '#ffffff' }
+    }).then(url => {
+      setCustomerQrDataUrl(url);
+    }).catch(console.error);
+  }, [directWhatsAppLink]);
 
   // Request Real WhatsApp 8-Digit Pairing OTP from WhatsApp servers
   const handleRequestPairingCode = async () => {
@@ -275,34 +293,45 @@ export const QRWhatsAppConnector: React.FC<QRWhatsAppConnectorProps> = ({ config
         {/* Left Column: QR Code / Pairing Interface */}
         <div className="lg:col-span-6 flex flex-col gap-6">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl relative">
-            {/* Tabs for QR vs Pairing Code */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
-              <div className="flex items-center gap-2">
+            {/* Tabs for Customer QR vs Pairing Code vs Device QR */}
+            <div className="flex flex-wrap items-center justify-between border-b border-slate-800 pb-4 mb-6 gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
                 <button
-                  onClick={() => setUsePairingCode(false)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                    !usePairingCode
+                  onClick={() => setConnectorMode('customer_qr')}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    connectorMode === 'customer_qr'
                       ? 'bg-emerald-500 text-white shadow-sm'
                       : 'text-slate-400 hover:text-white bg-slate-800/50'
                   }`}
                 >
-                  <QrCode className="w-3.5 h-3.5" />
-                  <span>QR Code Scan</span>
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <span>Real Customer QR (Live)</span>
                 </button>
                 <button
-                  onClick={() => setUsePairingCode(true)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                    usePairingCode
+                  onClick={() => setConnectorMode('pairing_code')}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    connectorMode === 'pairing_code'
                       ? 'bg-emerald-500 text-white shadow-sm'
                       : 'text-slate-400 hover:text-white bg-slate-800/50'
                   }`}
                 >
                   <KeyRound className="w-3.5 h-3.5" />
-                  <span>8-Digit Pairing Code</span>
+                  <span>8-Digit OTP Code</span>
+                </button>
+                <button
+                  onClick={() => setConnectorMode('device_qr')}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    connectorMode === 'device_qr'
+                      ? 'bg-emerald-500 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-white bg-slate-800/50'
+                  }`}
+                >
+                  <QrCode className="w-3.5 h-3.5" />
+                  <span>Linked Device QR</span>
                 </button>
               </div>
 
-              {connectionStatus !== 'connected' && (
+              {connectorMode === 'device_qr' && connectionStatus !== 'connected' && (
                 <button
                   onClick={generateNewQR}
                   title="Refresh QR Code"
@@ -356,8 +385,60 @@ export const QRWhatsAppConnector: React.FC<QRWhatsAppConnectorProps> = ({ config
                   </button>
                 </div>
               </div>
-            ) : !usePairingCode ? (
-              /* QR Code View */
+            ) : connectorMode === 'customer_qr' ? (
+              /* 100% Real Live Customer Lead QR View */
+              <div className="flex flex-col items-center text-center py-2">
+                <div className="relative p-3 bg-white rounded-2xl shadow-2xl border-4 border-emerald-500">
+                  {customerQrDataUrl ? (
+                    <img 
+                      src={customerQrDataUrl} 
+                      alt="Anvexaa AI Customer Lead QR" 
+                      className="w-64 h-64 sm:w-72 sm:h-72 object-contain rounded-xl"
+                    />
+                  ) : (
+                    <div className="w-64 h-64 sm:w-72 sm:h-72 flex flex-col items-center justify-center bg-slate-100 rounded-xl gap-2">
+                      <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin" />
+                      <span className="text-xs text-slate-600 font-semibold">Generating QR...</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-4 px-3 py-2 bg-emerald-500/10 border border-emerald-500/30 rounded-xl max-w-sm text-center">
+                  <div className="text-xs font-semibold text-emerald-300">
+                    📸 Apne mobile camera ya Google Lens se scan karein!
+                  </div>
+                  <div className="text-[11px] text-slate-300 mt-0.5">
+                    Scan karte hi turant aapka WhatsApp khulega aur Anvexaa AI ke auto-responder se connect ho jayega!
+                  </div>
+                </div>
+
+                {/* Direct Action Buttons */}
+                <div className="flex flex-col sm:flex-row gap-2 mt-4 w-full max-w-sm">
+                  <a
+                    href={directWhatsAppLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition-all shadow-lg flex items-center justify-center gap-2"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span>Open in WhatsApp Now</span>
+                  </a>
+
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(directWhatsAppLink);
+                      setCopiedLeadLink(true);
+                      setTimeout(() => setCopiedLeadLink(false), 2000);
+                    }}
+                    className="py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl text-xs transition-all border border-slate-700 flex items-center justify-center gap-1.5"
+                  >
+                    {copiedLeadLink ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                    <span>{copiedLeadLink ? 'Link Copied!' : 'Copy Link'}</span>
+                  </button>
+                </div>
+              </div>
+            ) : connectorMode === 'device_qr' ? (
+              /* Linked Device QR Code View */
               <div className="flex flex-col items-center text-center">
                 <div className="relative p-3 bg-white rounded-2xl shadow-2xl border-4 border-emerald-500/30">
                   {qrDataUrl ? (
@@ -388,14 +469,14 @@ export const QRWhatsAppConnector: React.FC<QRWhatsAppConnectorProps> = ({ config
                   <span>QR expires in <strong className="text-white">{countdown}s</strong> (Auto-refreshes)</span>
                 </div>
 
-                {/* Direct 1-Click Connect Button */}
+                {/* Confirm connection */}
                 <button
                   onClick={handleSimulateScan}
                   disabled={connectionStatus === 'authenticating'}
                   className="mt-5 w-full py-3 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2"
                 >
                   <Smartphone className="w-4 h-4" />
-                  <span>Scan Completed? Click to Connect Bot!</span>
+                  <span>Confirm Device Connection</span>
                 </button>
               </div>
             ) : (

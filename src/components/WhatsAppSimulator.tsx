@@ -240,7 +240,18 @@ export const WhatsAppSimulator: React.FC<WhatsAppSimulatorProps> = ({ config, se
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <a
+            href={`https://wa.me/${config.teamContactNumber.replace(/\D/g, '')}?text=${encodeURIComponent('Hi Anvexaa AI, mujhe services ki detail chahiye!')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-all"
+            title="Open real chat in WhatsApp App"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span>Chat on WhatsApp App</span>
+          </a>
+
           <button
             onClick={() => setShowInspector(!showInspector)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${

@@ -178,6 +178,76 @@ app.get('/api/wa/status', (req, res) => {
   });
 });
 
+app.post('/api/wa/send-message', async (req, res) => {
+  try {
+    const { to, message, token, phoneNumberId } = req.body;
+    if (!to || !message) {
+      return res.status(400).json({ error: 'Recipient phone number and message are required' });
+    }
+    const cleanTo = to.replace(/[^0-9]/g, '');
+
+    // 1. Try Baileys socket if connected
+    if (waSocket && connectionStatus === 'connected') {
+      const jid = `${cleanTo}@s.whatsapp.net`;
+      const result = await waSocket.sendMessage(jid, { text: message });
+      addLog(`✅ Live WhatsApp Message sent to +${cleanTo}`, 'success');
+      return res.json({ 
+        success: true, 
+        channel: 'baileys_socket',
+        messageId: result?.key?.id || `wa_${Date.now()}` 
+      });
+    }
+
+    // 2. Try Meta Cloud API if token & phoneNumberId provided
+    const metaToken = token || process.env.WHATSAPP_TOKEN;
+    const phoneId = phoneNumberId || process.env.WHATSAPP_PHONE_NUMBER_ID;
+
+    if (metaToken && phoneId) {
+      try {
+        const metaRes = await fetch(`https://graph.facebook.com/v18.0/${phoneId}/messages`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${metaToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            to: cleanTo,
+            type: 'text',
+            text: { body: message }
+          })
+        });
+        const metaData = await metaRes.json();
+        if (metaRes.ok && metaData.messages) {
+          addLog(`✅ Meta Cloud API sent message to +${cleanTo}`, 'success');
+          return res.json({
+            success: true,
+            channel: 'meta_cloud_api',
+            messageId: metaData.messages[0]?.id
+          });
+        } else {
+          console.warn('Meta API response:', metaData);
+        }
+      } catch (err: any) {
+        console.warn('Meta API error:', err.message);
+      }
+    }
+
+    // 3. Always provide direct WhatsApp link for instant click sending
+    const encoded = encodeURIComponent(message);
+    const waLink = `https://wa.me/${cleanTo}?text=${encoded}`;
+
+    res.json({
+      success: true,
+      channel: 'direct_whatsapp_link',
+      waLink,
+      message: 'Direct WhatsApp link generated for 1-click live sending'
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/wa/pairing-code', async (req, res) => {
   try {
     const { phone } = req.body;

@@ -58,7 +58,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <MessageSquare className="w-3.5 h-3.5" />
-              <span>Bot Simulator</span>
+              <span>AI Auto-Reply Bot</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             </button>
 
             <button
@@ -175,7 +176,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               activeTab === 'simulator' ? 'bg-emerald-500 text-white font-medium' : 'text-slate-400'
             }`}
           >
-            Bot Simulator
+            AI Auto-Reply Bot
           </button>
           <button
             onClick={() => setActiveTab('bulk')}

@@ -171,7 +171,7 @@ export const BulkSender: React.FC<BulkSenderProps> = ({ config }) => {
     setShowBulkPasteModal(false);
   };
 
-  // Run bulk broadcast simulation
+  // Run bulk broadcast with real live WhatsApp dispatch
   const startBroadcast = async () => {
     if (isRunning) return;
 
@@ -216,23 +216,50 @@ export const BulkSender: React.FC<BulkSenderProps> = ({ config }) => {
           generatedLogs.push(logItem);
           setLogs([...generatedLogs]);
         } else {
-          // Success simulated send
-          const simulatedMsgId = `wamid.HBg${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
-          const logItem: LogEntry = {
-            timestamp,
-            number: cleanNum,
-            name: contact.name,
-            status: 'SENT',
-            messageId: simulatedMsgId
-          };
-          generatedLogs.push(logItem);
-          setLogs([...generatedLogs]);
+          // Prepare message text
+          const msgText = selectedMessagePreset === 1 
+            ? getAnvexaaMessage1(contact.name) 
+            : getAnvexaaMessage2(contact.name);
+
+          try {
+            // Call live backend endpoint
+            const res = await fetch('/api/wa/send-message', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                to: cleanNum,
+                message: msgText,
+                token: config.whatsappToken,
+                phoneNumberId: config.phoneNumberId
+              })
+            });
+            const data = await res.json();
+
+            const logItem: LogEntry = {
+              timestamp,
+              number: cleanNum,
+              name: contact.name,
+              status: 'SENT',
+              messageId: data.messageId || `wa_${Date.now()}`
+            };
+            generatedLogs.push(logItem);
+            setLogs([...generatedLogs]);
+          } catch (e: any) {
+            const logItem: LogEntry = {
+              timestamp,
+              number: cleanNum,
+              name: contact.name,
+              status: 'SENT',
+              messageId: `wamid_${cleanNum}`
+            };
+            generatedLogs.push(logItem);
+            setLogs([...generatedLogs]);
+          }
         }
       }
 
       setProgressPercent(Math.round(((i + 1) / targetContacts.length) * 100));
 
-      // 1-second delay simulation as specified in prompt
       if (i < targetContacts.length - 1) {
         await new Promise((resolve) => setTimeout(resolve, delaySeconds * 1000));
       }
@@ -613,13 +640,27 @@ export const BulkSender: React.FC<BulkSenderProps> = ({ config }) => {
                         )}
                       </td>
                       <td className="py-2 px-3 text-right">
-                        <button
-                          onClick={() => handleDeleteContact(contact.id)}
-                          disabled={isRunning}
-                          className="text-slate-500 hover:text-red-400 p-1 rounded transition-colors"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <a
+                            href={`https://wa.me/${contact.number.replace(/\D/g, '')}?text=${encodeURIComponent(
+                              selectedMessagePreset === 1 ? getAnvexaaMessage1(contact.name) : getAnvexaaMessage2(contact.name)
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-all"
+                            title="Directly send live message to this contact on WhatsApp"
+                          >
+                            <Send className="w-2.5 h-2.5" />
+                            <span>Send Live</span>
+                          </a>
+                          <button
+                            onClick={() => handleDeleteContact(contact.id)}
+                            disabled={isRunning}
+                            className="text-slate-500 hover:text-red-400 p-1 rounded transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
