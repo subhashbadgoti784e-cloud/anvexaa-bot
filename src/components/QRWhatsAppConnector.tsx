@@ -48,69 +48,59 @@ export const QRWhatsAppConnector: React.FC<QRWhatsAppConnectorProps> = ({ config
   const [testInput, setTestInput] = useState('');
   const [isBotResponding, setIsBotResponding] = useState(false);
 
-  // Generate QR code
-  const generateNewQR = async () => {
-    setConnectionStatus('generating');
+  // Fetch real-time status from backend
+  const fetchStatus = async () => {
     try {
-      const payload = `2@ANVEXAA_MD_${Date.now()}_${Math.random().toString(36).substring(2, 10)},${Math.random().toString(36).substring(2, 15)},${Math.random().toString(36).substring(2, 12)}`;
-      const url = await QRCode.toDataURL(payload, {
-        width: 320,
-        margin: 2,
-        color: {
-          dark: '#0f172a',
-          light: '#ffffff'
+      const res = await fetch('/api/wa/status');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === 'connected') {
+          setConnectionStatus('connected');
+          if (data.user?.id) {
+            const rawPhone = data.user.id.split(':')[0];
+            setMobileNumber(`+${rawPhone}`);
+          }
+        } else if (data.status === 'qr_ready' && data.qrDataUrl) {
+          setConnectionStatus('waiting');
+          setQrDataUrl(data.qrDataUrl);
+        } else if (data.status === 'generating') {
+          setConnectionStatus('generating');
         }
-      });
-      setQrDataUrl(url);
-      setConnectionStatus('waiting');
-      setCountdown(30);
-    } catch (err) {
-      console.error('Error generating QR:', err);
-      setConnectionStatus('waiting');
+
+        if (Array.isArray(data.logs) && data.logs.length > 0) {
+          setLogs(data.logs);
+        }
+      }
+    } catch (e) {
+      // Backend polling fallback
     }
   };
 
   useEffect(() => {
-    generateNewQR();
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 2000);
+    return () => clearInterval(interval);
   }, []);
 
-  // Countdown timer for QR
-  useEffect(() => {
-    if (connectionStatus !== 'waiting') return;
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          generateNewQR();
-          return 30;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [connectionStatus]);
-
-  // Connect Simulation
-  const handleSimulateScan = () => {
-    setConnectionStatus('authenticating');
-    addLog('Scanned via WhatsApp Multi-Device on phone...', 'info');
-
-    setTimeout(() => {
-      addLog('Key exchange successful (Curve25519 encrypted)', 'info');
-    }, 1200);
-
-    setTimeout(() => {
-      setConnectionStatus('connected');
-      addLog(`Connected successfully as ${mobileNumber} (WhatsApp Web session active)`, 'success');
-      addLog('Anvexaa AI Auto-Responder is now LIVE for all incoming messages!', 'bot');
-    }, 2500);
+  // Request new QR from backend
+  const generateNewQR = async () => {
+    setConnectionStatus('generating');
+    try {
+      await fetch('/api/wa/start', { method: 'POST' });
+      fetchStatus();
+    } catch (err) {
+      console.error('Error starting WA:', err);
+    }
   };
 
-  const handleDisconnect = () => {
+  const handleDisconnect = async () => {
     setConnectionStatus('idle');
-    addLog('WhatsApp session disconnected.', 'info');
-    setTimeout(() => {
-      generateNewQR();
-    }, 500);
+    try {
+      await fetch('/api/wa/disconnect', { method: 'POST' });
+      fetchStatus();
+    } catch (err) {
+      console.error('Error disconnecting:', err);
+    }
   };
 
   const addLog = (text: string, type: 'info' | 'success' | 'bot' | 'user') => {
@@ -291,19 +281,11 @@ export const QRWhatsAppConnector: React.FC<QRWhatsAppConnectorProps> = ({ config
                       className="w-64 h-64 sm:w-72 sm:h-72 object-contain rounded-xl"
                     />
                   ) : (
-                    <div className="w-64 h-64 sm:w-72 sm:h-72 flex items-center justify-center bg-slate-100 rounded-xl">
-                      <RefreshCw className="w-8 h-8 text-slate-400 animate-spin" />
+                    <div className="w-64 h-64 sm:w-72 sm:h-72 flex flex-col items-center justify-center bg-slate-100 rounded-xl gap-2">
+                      <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin" />
+                      <span className="text-xs text-slate-600 font-semibold">Generating Live WhatsApp QR...</span>
                     </div>
                   )}
-
-                  {/* Anvexaa logo overlay in center */}
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="bg-white p-2 rounded-xl shadow-lg border border-slate-200">
-                      <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-bold text-sm">
-                        A
-                      </div>
-                    </div>
-                  </div>
 
                   {connectionStatus === 'authenticating' && (
                     <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center text-white">
